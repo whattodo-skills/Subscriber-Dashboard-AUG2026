@@ -1,15 +1,50 @@
 import wixData from 'wix-data';
 import wixUsers from 'wix-users';
 import { orders } from 'wix-pricing-plans-frontend';
+import { dailyCheckIn } from 'backend/daily-check-in.web';
 
 let skills = [];
 let currentUserTiers = ['Free'];
 let hasLoaded = false;
+const handledStackRequests = new Set();
 
 $w.onReady(function () {
-  $w('#html6').onMessage((event) => {
-    if (event.data && event.data.type === 'skillsHubReady') {
+  const skillsHub = $w('#html6');
+
+  skillsHub.onMessage(async (event) => {
+    const data = event.data;
+
+    if (data && data.type === 'skillsHubReady') {
       loadSkillsAndAccess();
+      return;
+    }
+
+    if (!isStackRequest(data) || handledStackRequests.has(data.requestId)) {
+      return;
+    }
+
+    handledStackRequests.add(data.requestId);
+
+    try {
+      const result = await dailyCheckIn({
+        action: 'saveStack',
+        entry: { skill: data.skill }
+      });
+
+      skillsHub.postMessage({
+        type: 'stackSkillResult',
+        requestId: data.requestId,
+        ok: true,
+        data: result
+      });
+    } catch (error) {
+      console.error('Could not save skill to Skills Stack:', error);
+      skillsHub.postMessage({
+        type: 'stackSkillResult',
+        requestId: data.requestId,
+        ok: false,
+        error: error && error.message ? error.message : 'skills_stack_save_failed'
+      });
     }
   });
 
@@ -79,6 +114,24 @@ async function loadSkillsAndAccess() {
   }
 
   sendSkillsToHub();
+}
+
+function isStackRequest(data) {
+  return Boolean(
+    data &&
+    data.type === 'stackSkill' &&
+    data.source === 'wtd-skills-hub' &&
+    data.action === 'stack' &&
+    typeof data.requestId === 'string' &&
+    data.requestId.length > 0 &&
+    data.requestId.length <= 120 &&
+    data.skill &&
+    typeof data.skill === 'object' &&
+    !Array.isArray(data.skill) &&
+    typeof data.skill.skillId === 'string' &&
+    data.skill.skillId.length > 0 &&
+    data.skill.skillId.length <= 120
+  );
 }
 
 function normalizeCurrentUserTiers(tiers) {
