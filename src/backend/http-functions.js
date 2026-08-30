@@ -444,7 +444,7 @@ export async function saveStackForMember(memberId, requestedSkill = {}) {
   const result = await wixData.query(STACKS).eq('memberId', memberId).eq('catKey', catKey).limit(100).find(OPTIONS);
   const existing = result.items.sort((a, b) => new Date(b.lastActionAt || b._updatedDate || 0) - new Date(a.lastActionAt || a._updatedDate || 0))[0];
   const now = new Date();
-  const values = { memberId, skillId: skill._id, skillName: clean(skill.name, 200), skillSlug: clean(skill.slug, 200), catKey, catLabel, practiceUrl: clean(skill['link-skills-1-name'] || skill.htmlUrl || skill.practiceUrl, 500), status: 'stacked', stacked: true, lastActionAt: now, stackedAt: now };
+  const values = { memberId, skillId: skill._id, skillName: clean(skill.name, 200), skillSlug: clean(skill.slug, 200), catKey, catLabel, practiceUrl: clean(canonicalUrl(skill), 500), status: 'stacked', stacked: true, lastActionAt: now, stackedAt: now };
   const saved = existing ? await wixData.update(STACKS, { ...existing, ...values }, OPTIONS) : await wixData.insert(STACKS, values, OPTIONS);
   await Promise.all(result.items.filter(item => item._id !== saved._id).map(item => wixData.update(STACKS, { ...item, stacked: false, status: 'archived', lastActionAt: now }, OPTIONS)));
   return { ok: true, replaced: existing && existing.skillId !== skill._id ? stackPayload(existing, null) : null, saved: stackPayload(saved, skill), stacks: await getStacks(memberId) };
