@@ -1,6 +1,8 @@
 import { dailyCheckIn } from 'backend/daily-check-in.web';
+import { saveDailyCheckIn } from 'backend/member-check-in.web';
+import { saveSkillsStack, removeSkillsStack } from 'backend/skills-stack.web';
 
-const ACTIONS = new Set(['list', 'previewRecommendations', 'startLoop', 'markSkillOpened', 'completeLoop', 'dismissLoop', 'getReflection', 'saveStack', 'removeStack']);
+const ACTIONS = new Set(['list', 'previewRecommendations', 'saveCheckin', 'startLoop', 'markSkillOpened', 'completeLoop', 'dismissLoop', 'getReflection', 'saveStack', 'removeStack']);
 const seen = new Set();
 let dashboardReady = false;
 
@@ -16,12 +18,19 @@ export function installDailyCheckInBridge($w) {
     if (!ACTIONS.has(data.action) || typeof data.requestId !== 'string' || !data.requestId || seen.has(data.requestId)) return;
     seen.add(data.requestId);
     try {
-      const result = await dailyCheckIn({ action: data.action, entry: data.entry || {} });
+      const result = await dispatchBridgeAction(data.action, data.entry || {});
       component.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: true, data: result });
     } catch (error) {
       component.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: false, error: error?.message || 'bridge_request_failed' });
     }
   });
+}
+
+function dispatchBridgeAction(action, entry) {
+  if (action === 'saveCheckin') return saveDailyCheckIn(entry);
+  if (action === 'saveStack') return saveSkillsStack({ skill: entry.skill });
+  if (action === 'removeStack') return removeSkillsStack({ catKey: entry.catKey });
+  return dailyCheckIn({ action, entry });
 }
 
 export function onReady($w) {

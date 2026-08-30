@@ -194,7 +194,7 @@ export async function post_dailyCheckIn(request) {
     if (!subscriber.id) return response(badRequest, { ok: false, error: 'missing_subscriber' });
     const entry = body?.entry || {};
     let result = {};
-    if (action === 'save') result = await saveLegacy(subscriber.id, entry);
+    if (action === 'save') result = await saveDailyCheckInForMember(subscriber.id, entry);
     else if (action === 'previewRecommendations') result = await previewRecommendations(entry);
     else if (action === 'startLoop') result = await startLoop(subscriber.id, entry);
     else if (action === 'markSkillOpened') result = await updateStatus(subscriber.id, entry.checkinId, 'learn_pending');
@@ -382,7 +382,7 @@ function skillPayload(skill, reason) {
 function canonicalUrl(skill) { const value = skill.practiceUrl || skill['link-skills-1-name'] || `/skills-hub/${skill.slug}`; return String(value).startsWith('/skills-hub/') ? `https://www.whattodo.coach${value}` : value; }
 function serverRationale(outcome, skill) { const approved = APPROVED_RATIONALES[outcome]?.[skill?._id]; if (!approved || !(ROUTES[outcome] || []).includes(skill._id)) throw new Error('unapproved_rationale_route'); return `You said you want to ${String(outcome).toLowerCase()}. This skill helps you ${approved}.`; }
 
-async function saveLegacy(memberId, entry) {
+export async function saveDailyCheckInForMember(memberId, entry) {
   if (!entry.emotion || !entry.feeling) throw new Error('invalid_checkin');
   const day = dateKey(entry.date || new Date());
   const items = await memberItems(memberId);

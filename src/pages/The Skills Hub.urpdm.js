@@ -1,7 +1,7 @@
 import wixData from 'wix-data';
 import wixUsers from 'wix-users';
 import { orders } from 'wix-pricing-plans-frontend';
-import { dailyCheckIn } from 'backend/daily-check-in.web';
+import { saveSkillsStack } from 'backend/skills-stack.web';
 
 let skills = [];
 let currentUserTiers = ['Free'];
@@ -28,10 +28,7 @@ $w.onReady(function () {
     handledStackRequests.add(data.requestId);
 
     try {
-      const result = await dailyCheckIn({
-        action: 'saveStack',
-        entry: { skill: data.skill }
-      });
+      const result = await saveSkillsStack({ skill: data.skill });
 
       if (!result.ok || !result.saved) {
         throw new Error(result.error || 'skills_stack_save_failed');

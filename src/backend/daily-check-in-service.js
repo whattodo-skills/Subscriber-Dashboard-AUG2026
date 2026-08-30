@@ -1,7 +1,7 @@
-import { getCheckins, getValues, getStacks, getPendingLoop, previewRecommendations, startLoop, updateStatus, completeLoop, getReflection } from './http-functions';
+import { getCheckins, getValues, getPendingLoop, previewRecommendations, startLoop, updateStatus, completeLoop, getReflection } from './http-functions';
 
 export async function listForMember(memberId) {
-  return { checkins: await getCheckins(memberId), values: await getValues(memberId), stacks: await getStacks(memberId), pendingLoop: await getPendingLoop(memberId) };
+  return { checkins: await getCheckins(memberId), values: await getValues(memberId), pendingLoop: await getPendingLoop(memberId) };
 }
 export function previewForMember(entry) { return previewRecommendations(entry); }
 export function startForMember(memberId, entry) { return startLoop(memberId, entry); }

@@ -1,10 +1,12 @@
 import wixData from 'wix-data';
 import wixUsers from 'wix-users';
 import { dailyCheckIn } from 'backend/daily-check-in.web';
+import { saveDailyCheckIn } from 'backend/member-check-in.web';
+import { saveSkillsStack, removeSkillsStack } from 'backend/skills-stack.web';
 
 let dashboardReady = false;
 let cachedPayload = null;
-const BRIDGE_ACTIONS = new Set(['list', 'previewRecommendations', 'startLoop', 'markSkillOpened', 'completeLoop', 'dismissLoop', 'getReflection', 'saveStack', 'removeStack']);
+const BRIDGE_ACTIONS = new Set(['list', 'previewRecommendations', 'saveCheckin', 'startLoop', 'markSkillOpened', 'completeLoop', 'dismissLoop', 'getReflection', 'saveStack', 'removeStack']);
 const bridgeRequests = new Set();
 
 function installDailyCheckInBridge() {
@@ -20,12 +22,19 @@ function installDailyCheckInBridge() {
     if (!BRIDGE_ACTIONS.has(data.action) || typeof data.requestId !== 'string' || !data.requestId || bridgeRequests.has(data.requestId)) return;
     bridgeRequests.add(data.requestId);
     try {
-      const result = await dailyCheckIn({ action: data.action, entry: data.entry || {} });
+      const result = await dispatchBridgeAction(data.action, data.entry || {});
       component.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: true, data: result });
     } catch (error) {
       component.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: false, error: error?.message || 'bridge_request_failed' });
     }
   });
+}
+
+function dispatchBridgeAction(action, entry) {
+  if (action === 'saveCheckin') return saveDailyCheckIn(entry);
+  if (action === 'saveStack') return saveSkillsStack({ skill: entry.skill });
+  if (action === 'removeStack') return removeSkillsStack({ catKey: entry.catKey });
+  return dailyCheckIn({ action, entry });
 }
 
 $w.onReady(function () {
