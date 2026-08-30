@@ -402,7 +402,27 @@ export async function getValues(memberId) {
 }
 export async function getStacks(memberId) {
   const items = (await wixData.query(STACKS).eq('memberId', memberId).eq('stacked', true).limit(100).find(READ_OPTIONS)).items;
-  return items.map(item => stackPayload(item, null));
+  const resolved = await Promise.all(items.map(async (item) => {
+    let skill = null;
+    if (item.skillId) {
+      try {
+        skill = await wixData.get(SKILLS, item.skillId, READ_OPTIONS);
+      } catch (error) {
+        skill = null;
+      }
+    }
+    const catKey = categoryKey(item.catKey || item.catLabel || skill?.category);
+    if (!STACK_CATEGORIES.has(catKey)) return null;
+    return stackPayload({ ...item, catKey, catLabel: STACK_CATEGORIES.get(catKey) }, skill);
+  }));
+  const latestByCategory = new Map();
+  resolved.filter(Boolean).forEach((item) => {
+    const current = latestByCategory.get(item.catKey);
+    const itemTime = new Date(item.lastActionAt || item.stackedAt || 0).getTime() || 0;
+    const currentTime = current ? (new Date(current.lastActionAt || current.stackedAt || 0).getTime() || 0) : -1;
+    if (!current || itemTime >= currentTime) latestByCategory.set(item.catKey, item);
+  });
+  return [...latestByCategory.values()];
 }
 
 const STACK_CATEGORIES = new Map([
