@@ -413,7 +413,9 @@ const STACK_CATEGORIES = new Map([
 
 function categoryKey(value) {
   const key = clean(value, 80).toLowerCase();
-  return key === 'connection' ? 'connecting' : key;
+  if (key === 'connection') return 'connecting';
+  if (key === 'feeling') return 'feelings';
+  return key;
 }
 
 function stackPayload(item, skill) {
