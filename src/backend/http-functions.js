@@ -7,6 +7,7 @@ const SKILLS = 'Skills';
 const VALUES = 'MemberValues';
 const STACKS = 'WTD-FavoriteSkills';
 const OPTIONS = { suppressAuth: true };
+const READ_OPTIONS = { suppressAuth: true, consistentRead: true };
 const CORS = {
   'Access-Control-Allow-Origin': 'https://whattodo-skills.github.io',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -400,7 +401,7 @@ export async function getValues(memberId) {
   return item ? [item.value1, item.value2, item.value3].map(x => clean(x, 80)).filter(Boolean).slice(0, 3) : [];
 }
 export async function getStacks(memberId) {
-  const items = (await wixData.query(STACKS).eq('memberId', memberId).eq('stacked', true).limit(100).find(OPTIONS)).items;
+  const items = (await wixData.query(STACKS).eq('memberId', memberId).eq('stacked', true).limit(100).find(READ_OPTIONS)).items;
   return items.map(item => stackPayload(item, null));
 }
 
@@ -436,9 +437,15 @@ function stackPayload(item, skill) {
     catKey: item.catKey || '',
     catLabel: item.catLabel || '',
     practiceUrl: item.practiceUrl || skill?.['link-skills-1-name'] || skill?.htmlUrl || '',
-    stackedAt: item.stackedAt || item._createdDate || null,
-    lastActionAt: item.lastActionAt || item._updatedDate || null
+    stackedAt: receiptDate(item.stackedAt || item._createdDate),
+    lastActionAt: receiptDate(item.lastActionAt || item._updatedDate)
   };
+}
+
+function receiptDate(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 export async function saveStackForMember(memberId, requestedSkill = {}) {
@@ -448,7 +455,7 @@ export async function saveStackForMember(memberId, requestedSkill = {}) {
   const catKey = categoryKey(skill.category);
   const catLabel = STACK_CATEGORIES.get(catKey);
   if (!catLabel) throw new Error('invalid_skill_category');
-  const result = await wixData.query(STACKS).eq('memberId', memberId).eq('catKey', catKey).limit(100).find(OPTIONS);
+  const result = await wixData.query(STACKS).eq('memberId', memberId).eq('catKey', catKey).limit(100).find(READ_OPTIONS);
   const existing = result.items.sort((a, b) => new Date(b.lastActionAt || b._updatedDate || 0) - new Date(a.lastActionAt || a._updatedDate || 0))[0];
   const now = new Date();
   const values = { memberId, skillId: skill._id, skillName: clean(skill.name, 200), skillSlug: clean(skill.slug, 200), catKey, catLabel, practiceUrl: clean(canonicalUrl(skill), 500), status: 'stacked', stacked: true, lastActionAt: now, stackedAt: now };
