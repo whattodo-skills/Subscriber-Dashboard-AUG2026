@@ -42,13 +42,21 @@ $w.onReady(function () {
 });
 
 async function buildDashboardPayload() {
-  const skills = await loadPublishedSkills();
-  const goalCard = await loadGoalCard();
+  const [skills, goalCard, stackData] = await Promise.all([
+    loadPublishedSkills(),
+    loadGoalCard(),
+    dailyCheckIn({ action: 'list', entry: {} }).catch(() => ({}))
+  ]);
 
   return {
-    type: 'dashboardInit',
+    type: 'subscriberDashboardData',
     skills,
     goalCard,
+    loggedIn: wixUsers.currentUser.loggedIn,
+    checkins: stackData.checkins || [],
+    stacks: stackData.stacks || [],
+    values: stackData.values || {},
+    pendingLoop: stackData.pendingLoop || null,
     notifications: [
       { title: 'Keep practicing', meta: 'Check your goals and mark today’s skill practice.', unread: true },
       { title: 'New skills available', meta: 'Open the Skills Hub to see what is new.', unread: false }
