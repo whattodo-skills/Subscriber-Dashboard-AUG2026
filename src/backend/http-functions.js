@@ -401,13 +401,7 @@ export async function getValues(memberId) {
 }
 export async function getStacks(memberId) {
   const items = (await wixData.query(STACKS).eq('memberId', memberId).eq('stacked', true).limit(100).find(OPTIONS)).items;
-  return Promise.all(items.map(async (item) => {
-    let skill = null;
-    if (item.skillId) {
-      try { skill = await wixData.get(SKILLS, item.skillId, OPTIONS); } catch (error) { skill = null; }
-    }
-    return stackPayload(item, skill);
-  }));
+  return items.map(item => stackPayload(item, null));
 }
 
 const STACK_CATEGORIES = new Map([
