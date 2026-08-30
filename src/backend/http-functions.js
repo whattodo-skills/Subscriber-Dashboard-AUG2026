@@ -200,6 +200,8 @@ export async function post_dailyCheckIn(request) {
     else if (action === 'completeLoop') result = await completeLoop(subscriber.id, entry, false);
     else if (action === 'dismissLoop') result = await completeLoop(subscriber.id, entry, true);
     else if (action === 'getReflection') return response(ok, await getReflection(subscriber.id, entry.checkinId));
+    else if (action === 'saveStack') result = await saveStackForMember(subscriber.id, entry.skill);
+    else if (action === 'removeStack') result = await removeStackForMember(subscriber.id, entry.catKey);
     else if (action !== 'list') return response(badRequest, { ok: false, error: 'unsupported_action' });
     return response(ok, {
       ok: true,
@@ -398,5 +400,59 @@ export async function getValues(memberId) {
   return item ? [item.value1, item.value2, item.value3].map(x => clean(x, 80)).filter(Boolean).slice(0, 3) : [];
 }
 export async function getStacks(memberId) {
-  return (await wixData.query(STACKS).eq('memberId', memberId).limit(100).find(OPTIONS)).items.map(item => ({ skillId: item.skillId || '', skillName: item.skillName || item.title || '', status: item.status || '' }));
+  const items = (await wixData.query(STACKS).eq('memberId', memberId).eq('stacked', true).limit(100).find(OPTIONS)).items;
+  return Promise.all(items.map(async (item) => {
+    const skill = item.skillId ? await wixData.get(SKILLS, item.skillId, OPTIONS) : null;
+    return stackPayload(item, skill);
+  }));
+}
+
+const STACK_CATEGORIES = new Map([
+  ['focus', 'Focus'], ['coping', 'Coping'], ['feelings', 'Feelings'], ['connecting', 'Connecting']
+]);
+
+function categoryKey(value) {
+  const key = clean(value, 80).toLowerCase();
+  return key === 'connection' ? 'connecting' : key;
+}
+
+function stackPayload(item, skill) {
+  return {
+    _id: item._id,
+    memberId: item.memberId,
+    skillId: item.skillId || '',
+    skillName: item.skillName || skill?.name || '',
+    skillSlug: item.skillSlug || skill?.slug || '',
+    description: skill?.description || '',
+    catKey: item.catKey || '',
+    catLabel: item.catLabel || '',
+    practiceUrl: item.practiceUrl || skill?.['link-skills-1-name'] || skill?.htmlUrl || '',
+    stackedAt: item.stackedAt || item._createdDate || null,
+    lastActionAt: item.lastActionAt || item._updatedDate || null
+  };
+}
+
+export async function saveStackForMember(memberId, requestedSkill = {}) {
+  if (!memberId || typeof requestedSkill.skillId !== 'string' || !requestedSkill.skillId.trim()) throw new Error('invalid_stack_skill');
+  const skill = await wixData.get(SKILLS, requestedSkill.skillId.trim(), OPTIONS);
+  if (!skill || skill.isPublished === false || skill.active === false) throw new Error('canonical_skill_unavailable');
+  const catKey = categoryKey(skill.category);
+  const catLabel = STACK_CATEGORIES.get(catKey);
+  if (!catLabel) throw new Error('invalid_skill_category');
+  const result = await wixData.query(STACKS).eq('memberId', memberId).eq('catKey', catKey).limit(100).find(OPTIONS);
+  const existing = result.items.sort((a, b) => new Date(b.lastActionAt || b._updatedDate || 0) - new Date(a.lastActionAt || a._updatedDate || 0))[0];
+  const now = new Date();
+  const values = { memberId, skillId: skill._id, skillName: clean(skill.name, 200), skillSlug: clean(skill.slug, 200), catKey, catLabel, practiceUrl: clean(skill['link-skills-1-name'] || skill.htmlUrl || skill.practiceUrl, 500), status: 'stacked', stacked: true, lastActionAt: now, stackedAt: now };
+  const saved = existing ? await wixData.update(STACKS, { ...existing, ...values }, OPTIONS) : await wixData.insert(STACKS, values, OPTIONS);
+  await Promise.all(result.items.filter(item => item._id !== saved._id).map(item => wixData.update(STACKS, { ...item, stacked: false, status: 'archived', lastActionAt: now }, OPTIONS)));
+  return { ok: true, replaced: existing && existing.skillId !== skill._id ? stackPayload(existing, null) : null, saved: stackPayload(saved, skill), stacks: await getStacks(memberId) };
+}
+
+export async function removeStackForMember(memberId, catKeyValue) {
+  const catKey = categoryKey(catKeyValue);
+  if (!STACK_CATEGORIES.has(catKey)) throw new Error('invalid_skill_category');
+  const result = await wixData.query(STACKS).eq('memberId', memberId).eq('catKey', catKey).eq('stacked', true).limit(100).find(OPTIONS);
+  const now = new Date();
+  await Promise.all(result.items.map(item => wixData.update(STACKS, { ...item, stacked: false, status: 'removed', lastActionAt: now }, OPTIONS)));
+  return { ok: true, removedCategory: catKey, stacks: await getStacks(memberId) };
 }

@@ -1,12 +1,35 @@
 import wixData from 'wix-data';
 import wixUsers from 'wix-users';
-import { installDailyCheckInBridge } from 'backend/daily-check-in-bridge-page';
+import { dailyCheckIn } from 'backend/daily-check-in.web';
 
 let dashboardReady = false;
 let cachedPayload = null;
+const BRIDGE_ACTIONS = new Set(['list', 'previewRecommendations', 'startLoop', 'markSkillOpened', 'completeLoop', 'dismissLoop', 'getReflection', 'saveStack', 'removeStack']);
+const bridgeRequests = new Set();
+
+function installDailyCheckInBridge() {
+  const component = $w('#html6');
+  let bridgeReady = false;
+  component.onMessage(async ({ data }) => {
+    if (!data || data.type !== 'dashboardBridgeReady') return;
+    bridgeReady = true;
+    component.postMessage({ type: 'bridgeReady' });
+  });
+  component.onMessage(async ({ data }) => {
+    if (!bridgeReady || !data || data.type !== 'dailyCheckInBridgeRequest') return;
+    if (!BRIDGE_ACTIONS.has(data.action) || typeof data.requestId !== 'string' || !data.requestId || bridgeRequests.has(data.requestId)) return;
+    bridgeRequests.add(data.requestId);
+    try {
+      const result = await dailyCheckIn({ action: data.action, entry: data.entry || {} });
+      component.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: true, data: result });
+    } catch (error) {
+      component.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: false, error: error?.message || 'bridge_request_failed' });
+    }
+  });
+}
 
 $w.onReady(function () {
-  installDailyCheckInBridge($w);
+  installDailyCheckInBridge();
   $w('#html6').onMessage(async (event) => {
     const msg = event.data || {};
 

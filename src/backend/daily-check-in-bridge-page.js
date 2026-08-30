@@ -1,6 +1,6 @@
 import { dailyCheckIn } from 'backend/daily-check-in.web';
 
-const ACTIONS = new Set(['list', 'previewRecommendations', 'startLoop', 'markSkillOpened', 'completeLoop', 'dismissLoop', 'getReflection']);
+const ACTIONS = new Set(['list', 'previewRecommendations', 'startLoop', 'markSkillOpened', 'completeLoop', 'dismissLoop', 'getReflection', 'saveStack', 'removeStack']);
 const seen = new Set();
 let dashboardReady = false;
 
