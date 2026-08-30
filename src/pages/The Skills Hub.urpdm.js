@@ -1,7 +1,7 @@
 import wixData from 'wix-data';
 import wixUsers from 'wix-users';
 import { orders } from 'wix-pricing-plans-frontend';
-import { fetch } from 'wix-fetch';
+import { dailyCheckIn } from 'backend/daily-check-in.web';
 
 let skills = [];
 let currentUserTiers = ['Free'];
@@ -28,15 +28,12 @@ $w.onReady(function () {
     handledStackRequests.add(data.requestId);
 
     try {
-      const response = await fetch('https://www.whattodo.coach/_functions/dailyCheckIn', {
-        method: 'post',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ action: 'saveStack', entry: { skill: data.skill } })
+      const result = await dailyCheckIn({
+        action: 'saveStack',
+        entry: { skill: data.skill }
       });
-      const result = await response.json();
 
-      if (!response.ok || !result.ok || !result.saved) {
+      if (!result.ok || !result.saved) {
         throw new Error(result.error || 'skills_stack_save_failed');
       }
 
