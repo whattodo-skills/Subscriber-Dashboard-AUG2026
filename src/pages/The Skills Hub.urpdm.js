@@ -7,11 +7,13 @@ let skills = [];
 let currentUserTiers = ['Free'];
 let hasLoaded = false;
 const handledStackRequests = new Set();
+let skillsHubComponents = [];
 
 $w.onReady(function () {
-  const skillsHub = $w('#html6');
+  skillsHubComponents = $w('HtmlComponent');
 
-  skillsHub.onMessage(async (event) => {
+  skillsHubComponents.forEach((skillsHub) => {
+    skillsHub.onMessage(async (event) => {
     const data = event.data;
 
     if (data && data.type === 'skillsHubReady') {
@@ -46,6 +48,7 @@ $w.onReady(function () {
         error: error && error.message ? error.message : 'skills_stack_save_failed'
       });
     }
+    });
   });
 
   setTimeout(() => {
@@ -200,9 +203,11 @@ function normalizeTiers(tiers) {
 }
 
 function sendSkillsToHub() {
-  $w('#html6').postMessage({
-    type: 'skillsHubInit',
-    skills: skills,
-    currentUserTiers: currentUserTiers
+  skillsHubComponents.forEach((skillsHub) => {
+    skillsHub.postMessage({
+      type: 'skillsHubInit',
+      skills: skills,
+      currentUserTiers: currentUserTiers
+    });
   });
 }
