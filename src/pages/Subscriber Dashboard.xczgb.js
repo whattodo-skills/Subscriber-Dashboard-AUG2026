@@ -42,10 +42,11 @@ $w.onReady(function () {
 });
 
 async function buildDashboardPayload() {
-  const [skills, goalCard, stackData] = await Promise.all([
+  const [skills, goalCard, stackData, savedStack] = await Promise.all([
     loadPublishedSkills(),
     loadGoalCard(),
-    dailyCheckIn({ action: 'list', entry: {} }).catch(() => ({}))
+    dailyCheckIn({ action: 'list', entry: {} }).catch(() => ({})),
+    loadSavedStack()
   ]);
 
   return {
@@ -54,7 +55,7 @@ async function buildDashboardPayload() {
     goalCard,
     loggedIn: wixUsers.currentUser.loggedIn,
     checkins: stackData.checkins || [],
-    stacks: stackData.stacks || [],
+    stacks: savedStack.length ? savedStack : (stackData.stacks || []),
     values: stackData.values || {},
     pendingLoop: stackData.pendingLoop || null,
     notifications: [
@@ -71,6 +72,54 @@ async function buildDashboardPayload() {
       { name: 'Recent Articles', meta: 'Read the latest What To Do! posts.' }
     ]
   };
+}
+
+async function loadSavedStack() {
+  if (!wixUsers.currentUser.loggedIn) return [];
+  try {
+    const memberId = wixUsers.currentUser.id;
+    const result = await wixData.query('WTD-FavoriteSkills')
+      .eq('memberId', memberId)
+      .eq('stacked', true)
+      .limit(100)
+      .find();
+    const latest = new Map();
+    result.items.forEach((item) => {
+      const catKey = normalizeCategory(item.catKey || item.catLabel);
+      if (!catKey) return;
+      const row = {
+        _id: item._id,
+        memberId: item.memberId,
+        skillId: item.skillId || '',
+        skillName: item.skillName || '',
+        skillSlug: item.skillSlug || '',
+        catKey,
+        catLabel: categoryLabel(catKey),
+        practiceUrl: item.practiceUrl || '',
+        stackedAt: item.stackedAt || item._createdDate || null,
+        lastActionAt: item.lastActionAt || item._updatedDate || null
+      };
+      const current = latest.get(catKey);
+      if (!current || new Date(row.lastActionAt || row.stackedAt || 0) >= new Date(current.lastActionAt || current.stackedAt || 0)) latest.set(catKey, row);
+    });
+    return [...latest.values()];
+  } catch (error) {
+    console.log('Could not load Skills Stack for dashboard', error);
+    return [];
+  }
+}
+
+function normalizeCategory(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'focus') return 'focus';
+  if (key === 'coping' || key === 'cope') return 'coping';
+  if (key === 'feelings' || key === 'feeling') return 'feelings';
+  if (key === 'connecting' || key === 'connection' || key === 'connect') return 'connecting';
+  return '';
+}
+
+function categoryLabel(key) {
+  return { focus: 'Focus', coping: 'Coping', feelings: 'Feelings', connecting: 'Connecting' }[key] || '';
 }
 
 async function loadPublishedSkills() {
