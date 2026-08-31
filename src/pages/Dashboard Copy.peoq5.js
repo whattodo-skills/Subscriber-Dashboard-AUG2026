@@ -6,6 +6,7 @@ import { saveDailyCheckIn } from 'backend/member-check-in.web';
 import { saveSkillsStack, removeSkillsStack } from 'backend/skills-stack.web';
 
 const BRIDGE_ACTIONS = new Set(['list', 'previewRecommendations', 'saveCheckin', 'startLoop', 'markSkillOpened', 'completeLoop', 'dismissLoop', 'getReflection', 'saveStack', 'removeStack']);
+const DASHBOARD_SHELL_URL = 'https://whattodo-skills.github.io/SubscriberDashboard/subscriber-dashboard-shell.html?v=d076e55';
 const handledRequests = new Set();
 
 $w.onReady(function () {
@@ -35,6 +36,8 @@ $w.onReady(function () {
       dashboard.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: false, error: error?.message || 'bridge_request_failed' });
     }
   });
+
+  dashboard.src = DASHBOARD_SHELL_URL;
 });
 
 function dispatchBridgeAction(action, entry) {
