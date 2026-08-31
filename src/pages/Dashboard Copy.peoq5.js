@@ -1,6 +1,7 @@
 import wixData from 'wix-data';
 import wixUsers from 'wix-users';
 import { dailyCheckIn } from 'backend/daily-check-in.web';
+import { startDecisionLoop } from 'backend/decision-loop.web';
 import { saveDailyCheckIn } from 'backend/member-check-in.web';
 import { saveSkillsStack, removeSkillsStack } from 'backend/skills-stack.web';
 
@@ -38,6 +39,7 @@ $w.onReady(function () {
 
 function dispatchBridgeAction(action, entry) {
   if (action === 'saveCheckin') return saveDailyCheckIn(entry);
+  if (action === 'startLoop') return startDecisionLoop({ entry });
   if (action === 'saveStack') return saveSkillsStack({ skill: entry.skill });
   if (action === 'removeStack') return removeSkillsStack({ catKey: entry.catKey });
   return dailyCheckIn({ action, entry });
