@@ -28,7 +28,7 @@ $w.onReady(function () {
     handledRequests.add(data.requestId);
     try {
       const result = await dispatchBridgeAction(data.action, data.entry || {});
-      if (result?.__bridgeError) throw new Error(result.__bridgeError);
+      if (result?.bridgeError) throw new Error(result.bridgeError);
       dashboard.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: true, data: result });
     } catch (error) {
       dashboard.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: false, error: error?.message || 'bridge_request_failed' });

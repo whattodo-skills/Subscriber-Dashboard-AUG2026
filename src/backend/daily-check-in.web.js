@@ -51,7 +51,7 @@ export const dailyCheckIn = webMethod(Permissions.SiteMember, async ({ action, e
     // They must construct CMS records explicitly; never spread `safe` into a record.
     return await dispatchAction(action, member._id, safe);
   } catch (error) {
-    return { __bridgeError: error?.message || 'daily_check_in_failed' };
+    return { bridgeError: error?.message || 'daily_check_in_failed' };
   }
 });
 

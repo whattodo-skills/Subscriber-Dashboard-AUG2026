@@ -19,7 +19,7 @@ export function installDailyCheckInBridge($w) {
     seen.add(data.requestId);
     try {
       const result = await dispatchBridgeAction(data.action, data.entry || {});
-      if (result?.__bridgeError) throw new Error(result.__bridgeError);
+      if (result?.bridgeError) throw new Error(result.bridgeError);
       component.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: true, data: result });
     } catch (error) {
       component.postMessage({ type: 'dailyCheckInBridgeResponse', requestId: data.requestId, action: data.action, ok: false, error: error?.message || 'bridge_request_failed' });
