@@ -31,7 +31,7 @@ function validate(action, input) {
   if (input.recommendedSkillIds !== undefined && (!Array.isArray(input.recommendedSkillIds) || input.recommendedSkillIds.length > 3)) throw new Error('invalid_skill_ids');
   if (input.recommendedSkillIds) input.recommendedSkillIds = input.recommendedSkillIds.map(id);
   if (input.privateReflection !== undefined) input.privateReflection = text(input.privateReflection, MAX.reflection);
-  ['intensityBefore', 'intensityAfter'].forEach((key) => { if (input[key] !== undefined && (!Number.isInteger(input[key]) || input[key] < 1 || input[key] > 10)) throw new Error('invalid_rating'); });
+  ['intensityBefore', 'intensityAfter'].forEach((key) => { if (input[key] !== undefined && input[key] !== null && (!Number.isInteger(input[key]) || input[key] < 1 || input[key] > 10)) throw new Error('invalid_rating'); });
   ['reflectionSaved', 'completeWithoutSkill'].forEach((key) => { if (input[key] !== undefined && typeof input[key] !== 'boolean') throw new Error('invalid_boolean'); });
   if (input.date !== undefined && (typeof input.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.date))) throw new Error('invalid_date');
   if (input.practiceAction !== undefined && !['practice', 'save_for_later', 'no_skill'].includes(input.practiceAction)) throw new Error('invalid_practice_action');
