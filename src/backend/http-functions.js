@@ -3,6 +3,7 @@ import wixData from 'wix-data';
 import { currentMember } from 'wix-members-backend';
 
 const CHECKINS = 'MoodCheckIns';
+const DECISION_LOOPS = 'DecisionLoops';
 const SKILLS = 'Skills';
 const VALUES = 'MemberValues';
 const STACKS = 'WTD-FavoriteSkills';
@@ -238,6 +239,10 @@ async function memberItems(memberId) {
   return (await wixData.query(CHECKINS).eq('memberId', memberId).limit(1000).find(OPTIONS)).items;
 }
 
+async function memberLoops(memberId) {
+  return (await wixData.query(DECISION_LOOPS).eq('memberId', memberId).limit(1000).find(OPTIONS)).items;
+}
+
 export async function previewRecommendations(entry) {
   const outcome = clean(entry.selectedOutcome);
   const category = clean(entry.selectedCategory, 40);
@@ -251,7 +256,7 @@ export async function previewRecommendations(entry) {
 export async function startLoop(memberId, entry) {
   const submissionId = clean(entry.submissionId, 120);
   if (submissionId) {
-    const replay = await wixData.query(CHECKINS)
+    const replay = await wixData.query(DECISION_LOOPS)
       .eq('memberId', memberId)
       .eq('submissionId', submissionId)
       .limit(1)
@@ -265,7 +270,7 @@ export async function startLoop(memberId, entry) {
       };
     }
   }
-  const items = await memberItems(memberId);
+  const items = await memberLoops(memberId);
   const active = items.find(item => item.loopVersion === 'decision-loop-v1' && item.loopStatus !== 'complete');
   if (active) return { checkinId: active._id, resumedExisting: true };
   const today = dateKey(entry.date || new Date());
@@ -292,7 +297,6 @@ export async function startLoop(memberId, entry) {
     submissionId,
     noticeSelection: clean(entry.noticeSelection),
     emotion: clean(entry.emotion, 80),
-    feeling: clean(entry.emotion, 80),
     intensityBefore: number1to10(entry.intensityBefore),
     understandInfluence: clean(entry.understandInfluence),
     understandPriority: clean(entry.understandPriority),
@@ -311,7 +315,7 @@ export async function startLoop(memberId, entry) {
   delete item.intensityAfter;
   delete item.privateReflection;
   delete item.reflectionSaved;
-  const saved = item._id ? await wixData.update(CHECKINS, item, OPTIONS) : await wixData.insert(CHECKINS, item, OPTIONS);
+  const saved = item._id ? await wixData.update(DECISION_LOOPS, item, OPTIONS) : await wixData.insert(DECISION_LOOPS, item, OPTIONS);
   return { checkinId: saved._id, recommendedSkill: noSkill ? null : skillPayload(skill, item.recommendationRationaleSnapshot), completedWithoutSkill: noSkill };
 }
 
@@ -320,7 +324,7 @@ export async function updateStatus(memberId, checkinId, status) {
   const item = await owned(memberId, checkinId);
   if (item.loopStatus === 'complete') return { checkinId: item._id };
   item.loopStatus = status;
-  await wixData.update(CHECKINS, item, OPTIONS);
+  await wixData.update(DECISION_LOOPS, item, OPTIONS);
   return { checkinId: item._id };
 }
 
@@ -335,13 +339,13 @@ export async function completeLoop(memberId, entry, dismissed) {
     item.privateReflection = clean(entry.privateReflection, 600);
     item.reflectionSaved = true;
   }
-  await wixData.update(CHECKINS, item, OPTIONS);
+  await wixData.update(DECISION_LOOPS, item, OPTIONS);
   return { checkinId: item._id };
 }
 
 async function owned(memberId, id) {
   if (!id) throw new Error('missing_checkin_id');
-  const result = await wixData.query(CHECKINS).eq('_id', id).eq('memberId', memberId).limit(1).find(OPTIONS);
+  const result = await wixData.query(DECISION_LOOPS).eq('_id', id).eq('memberId', memberId).limit(1).find(OPTIONS);
   if (!result.items[0]) throw new Error('checkin_not_found');
   return result.items[0];
 }
@@ -354,7 +358,7 @@ export async function getReflection(memberId, id) {
 }
 
 export async function getPendingLoop(memberId) {
-  const items = await memberItems(memberId);
+  const items = await memberLoops(memberId);
   const item = items.filter(x => x.loopVersion === 'decision-loop-v1' && x.loopStatus !== 'complete').sort((a, b) => new Date(b._updatedDate).getTime() - new Date(a._updatedDate).getTime())[0];
   if (!item) return null;
   let selectedSkill = null;
