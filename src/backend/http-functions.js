@@ -266,19 +266,12 @@ export async function startLoop(memberId, entry) {
       return {
         checkinId: existingSubmission._id,
         idempotentReplay: true,
-        alreadyCompletedToday: existingSubmission.loopStatus === 'complete'
+        completedSubmission: existingSubmission.loopStatus === 'complete'
       };
     }
   }
-  const items = await memberLoops(memberId);
-  const active = items.find(item => item.loopVersion === 'decision-loop-v1' && item.loopStatus !== 'complete');
-  if (active) return { checkinId: active._id, resumedExisting: true };
   const today = dateKey(entry.date || new Date());
   if (!today || !entry.noticeSelection || !entry.understandInfluence || !entry.understandPriority || !entry.selectedCategory || !entry.selectedOutcome) throw new Error('invalid_loop');
-  const sameDay = items.find(item => dateKey(item.date) === today);
-  if (sameDay?.loopVersion === 'decision-loop-v1' && sameDay.loopStatus === 'complete') {
-    return { checkinId: sameDay._id, alreadyCompletedToday: true };
-  }
   const noSkill = entry.completeWithoutSkill === true || entry.practiceAction === 'no_skill';
   const allowed = ROUTES[entry.selectedOutcome] || [];
   if (!noSkill && !allowed.includes(entry.selectedSkillId)) throw new Error('unapproved_skill_route');
@@ -287,7 +280,9 @@ export async function startLoop(memberId, entry) {
     skill = await wixData.get(SKILLS, entry.selectedSkillId, OPTIONS);
     if (!skill || skill.isPublished === false || skill.active === false || skill.category !== entry.selectedCategory) throw new Error('canonical_skill_unavailable');
   }
-  const item = sameDay || {};
+  // A new submissionId represents a new Decision Loop, even on the same day.
+  // Only the memberId + submissionId replay query above may reuse a record.
+  const item = {};
   const approvedRationale = noSkill ? '' : serverRationale(entry.selectedOutcome, skill);
   Object.assign(item, {
     memberId,
@@ -315,7 +310,7 @@ export async function startLoop(memberId, entry) {
   delete item.intensityAfter;
   delete item.privateReflection;
   delete item.reflectionSaved;
-  const saved = item._id ? await wixData.update(DECISION_LOOPS, item, OPTIONS) : await wixData.insert(DECISION_LOOPS, item, OPTIONS);
+  const saved = await wixData.insert(DECISION_LOOPS, item, OPTIONS);
   return { checkinId: saved._id, recommendedSkill: noSkill ? null : skillPayload(skill, item.recommendationRationaleSnapshot), completedWithoutSkill: noSkill };
 }
 
