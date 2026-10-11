@@ -382,13 +382,49 @@ function canonicalUrl(skill) { const value = skill.practiceUrl || skill['link-sk
 function serverRationale(outcome, skill) { const approved = APPROVED_RATIONALES[outcome]?.[skill?._id]; if (!approved || !(ROUTES[outcome] || []).includes(skill._id)) throw new Error('unapproved_rationale_route'); return `You said you want to ${String(outcome).toLowerCase()}. This skill helps you ${approved}.`; }
 
 export async function saveDailyCheckInForMember(memberId, entry) {
-  if (!entry.emotion || !entry.feeling) throw new Error('invalid_checkin');
+  if (!memberId || !entry.submissionId || !entry.emotion) throw new Error('invalid_checkin');
   const day = dateKey(entry.date || new Date());
   const items = await memberItems(memberId);
   const item = items.find(x => dateKey(x.date) === day) || {};
-  Object.assign(item, { memberId, date: dateValue(day), emotion: clean(entry.emotion, 80), feeling: clean(entry.feeling, 80) });
+  const now = new Date();
+  Object.assign(item, {
+    memberId,
+    submissionId: item.submissionId || clean(entry.submissionId, 80),
+    date: dateValue(day),
+    completedAt: item.completedAt || now,
+    updatedAt: now,
+    status: 'completed',
+    emotionId: clean(entry.emotionId, 80),
+    emotion: clean(entry.emotion, 80),
+    feelingId: clean(entry.feelingId, 80),
+    feeling: clean(entry.feeling, 80),
+    contextWordId: clean(entry.contextWordId, 80),
+    contextWord: clean(entry.contextWord, 80),
+    bodyStateId: clean(entry.bodyStateId, 80),
+    bodyState: clean(entry.bodyState, 80),
+    note: clean(entry.note, 600),
+    timezone: clean(entry.timezone, 80),
+    schemaVersion: clean(entry.schemaVersion, 80)
+  });
   const saved = item._id ? await wixData.update(CHECKINS, item, OPTIONS) : await wixData.insert(CHECKINS, item, OPTIONS);
-  return { checkinId: saved._id };
+  const savedRecord = {
+    _id: saved._id,
+    submissionId: saved.submissionId || saved._id,
+    date: dateKey(saved.date),
+    emotionId: saved.emotionId || '',
+    emotion: saved.emotion || '',
+    feelingId: saved.feelingId || '',
+    feeling: saved.feeling || '',
+    contextWordId: saved.contextWordId || '',
+    contextWord: saved.contextWord || '',
+    bodyStateId: saved.bodyStateId || '',
+    bodyState: saved.bodyState || '',
+    note: saved.note || '',
+    timezone: saved.timezone || '',
+    status: saved.status || 'completed',
+    schemaVersion: saved.schemaVersion || ''
+  };
+  return { checkinId: saved._id, savedRecord, checkins: await getCheckins(memberId), updatedExistingDay: Boolean(item._id) };
 }
 
 export async function getCheckins(memberId) {
